@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File to Text Converter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+    body {
+      background: linear-gradient(145deg, #6a11cb 0%, #2575fc 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      flex-direction: column;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px);
+      border-radius: 18px;
+      padding: 25px 20px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(0,0,0,0.15);
+    }
+    h1 {
+      font-size: 1.5em;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    p {
+      font-size: 0.9em;
+      opacity: 0.8;
+      margin-bottom: 18px;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    label {
+      background: #fff;
+      color: #2575fc;
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-block;
+      margin: 5px;
+      font-size: 0.9em;
+      transition: 0.3s;
+    }
+    label:hover {
+      background: #2575fc;
+      color: #fff;
+    }
+    button {
+      background: #00c851;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.3s;
+      margin-top: 10px;
+      font-size: 0.9em;
+    }
+    button:hover {
+      background: #009e3e;
+    }
+    #output {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 12px;
+      border-radius: 10px;
+      min-height: 100px;
+      margin-top: 20px;
+      text-align: left;
+      white-space: pre-wrap;
+      color: #fff;
+      font-size: 0.9em;
+      overflow-x: auto;
+    }
+    #loader {
+      display: none;
+      margin-top: 20px;
+    }
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      animation: spin 1s linear infinite;
+      margin: auto;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+    .copy-btn {
+      margin-top: 10px;
+      background: #ffbb33;
+      color: #000;
+    }
+    .copy-btn:hover {
+      background: #ff8800;
+      color: white;
+    }
+    footer {
+      margin-top: 15px;
+      font-size: 0.8em;
+      opacity: 0.8;
+      text-align: center;
+      color: #fff;
+    }
+    footer span {
+      color: #ffeb3b;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 File to Text Converter</h1>
+    <p>Convert Image or PDF file into editable text</p>
+
+    <input type="file" id="imageInput" accept="image/*">
+    <input type="file" id="pdfInput" accept="application/pdf">
+
+    <div>
+      <label for="imageInput">🖼️ Choose Image</label>
+      <label for="pdfInput">📑 Choose PDF</label>
+    </div>
+
+    <button id="convertBtn">Convert to Text</button>
+
+    <div id="loader">
+      <div class="spinner"></div>
+      <p style="margin-top:6px;">Processing...</p>
+    </div>
+
+    <div id="output">📝 Detected text will appear here...</div>
+    <button id="copyBtn" class="copy-btn" style="display:none;">📋 Copy Text</button>
+  </div>
+
+  <footer>Made with ❤️ by <span>Rifat AHMED</span></footer>
+
+  <!-- Tesseract.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const pdfInput = document.getElementById('pdfInput');
+    const convertBtn = document.getElementById('convertBtn');
+    const output = document.getElementById('output');
+    const loader = document.getElementById('loader');
+    const copyBtn = document.getElementById('copyBtn');
+
+    convertBtn.addEventListener('click', async () => {
+      const imageFile = imageInput.files[0];
+      const pdfFile = pdfInput.files[0];
+
+      if (!imageFile && !pdfFile) {
+        alert('Please select an image or PDF first!');
+        return;
+      }
+
+      loader.style.display = 'block';
+      output.innerText = '';
+      copyBtn.style.display = 'none';
+
+      try {
+        let extractedText = '';
+
+        // 🖼️ Image OCR
+        if (imageFile) {
+          const { data: { text } } = await Tesseract.recognize(imageFile, 'eng');
+          extractedText = text.trim();
+        }
+
+        // 📑 PDF Text
+        else if (pdfFile) {
+          const pdfData = await pdfFile.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const strings = textContent.items.map(item => item.str);
+            extractedText += strings.join(' ') + '\n\n';
+          }
+        }
+
+        loader.style.display = 'none';
+        output.innerText = extractedText || '❌ No text detected';
+        if (extractedText) copyBtn.style.display = 'inline-block';
+      } catch (err) {
+        loader.style.display = 'none';
+        output.innerText = '⚠️ Error: ' + err.message;
+      }
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(output.innerText);
+      copyBtn.innerText = '✅ Copied!';
+      setTimeout(() => copyBtn.innerText = '📋 Copy Text', 1500);
+    });
+  </script>
+</body>
+</html>
